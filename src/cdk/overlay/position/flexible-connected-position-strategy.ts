@@ -19,7 +19,7 @@ import {
 import {Observable, Subscription, Subject, Observer} from 'rxjs';
 import {OverlayReference} from '../overlay-reference';
 import {isElementScrolledOutsideView, isElementClippedByScrolling} from './scroll-clip';
-import {coerceCssPixelValue, coerceArray} from '@angular/cdk/coercion';
+import {coerceCssPixelValue, coerceArray, coerceElement} from '@angular/cdk/coercion';
 import {Platform} from '@angular/cdk/platform';
 import {OverlayContainer} from '../overlay-container';
 
@@ -123,7 +123,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
 
   /** Observable sequence of position changes. */
   positionChanges: Observable<ConnectedOverlayPositionChange> =
-      Observable.create((observer: Observer<ConnectedOverlayPositionChange>) => {
+      new Observable((observer: Observer<ConnectedOverlayPositionChange>) => {
         const subscription = this._positionChanges.subscribe(observer);
         this._positionChangeSubscriptions++;
 
@@ -431,7 +431,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
    * @param origin Reference to the new origin element.
    */
   setOrigin(origin: ElementRef | HTMLElement): this {
-    this._origin = origin instanceof ElementRef ? origin.nativeElement : origin;
+    this._origin = coerceElement(origin);
     return this;
   }
 
@@ -711,7 +711,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     if (position.overlayY === 'top') {
       // Overlay is opening "downward" and thus is bound by the bottom viewport edge.
       top = origin.y;
-      height = viewport.bottom - origin.y;
+      height = viewport.height - top + this._viewportMargin;
     } else if (position.overlayY === 'bottom') {
       // Overlay is opening "upward" and thus is bound by the top viewport edge. We need to add
       // the viewport margin back in, because the viewport rect is narrowed down to remove the
@@ -857,6 +857,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       bottom: '',
       right: '',
       position: '',
+      transform: '',
     } as CSSStyleDeclaration);
   }
 

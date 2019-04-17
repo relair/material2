@@ -8,7 +8,7 @@
 
 import {Direction, Directionality} from '@angular/cdk/bidi';
 import {coerceNumberProperty} from '@angular/cdk/coercion';
-import {END, ENTER, HOME, SPACE} from '@angular/cdk/keycodes';
+import {END, ENTER, HOME, SPACE, hasModifierKey} from '@angular/cdk/keycodes';
 import {ViewportRuler} from '@angular/cdk/scrolling';
 import {
   AfterContentChecked,
@@ -34,6 +34,7 @@ import {takeUntil} from 'rxjs/operators';
 import {MatInkBar} from './ink-bar';
 import {MatTabLabelWrapper} from './tab-label-wrapper';
 import {FocusKeyManager} from '@angular/cdk/a11y';
+import {Platform} from '@angular/cdk/platform';
 
 
 /**
@@ -132,17 +133,18 @@ export class MatTabHeader extends _MatTabHeaderMixinBase
   private _selectedIndex: number = 0;
 
   /** Event emitted when the option is selected. */
-  @Output() readonly selectFocusedIndex = new EventEmitter();
+  @Output() readonly selectFocusedIndex: EventEmitter<number> = new EventEmitter<number>();
 
   /** Event emitted when a label is focused. */
-  @Output() readonly indexFocused = new EventEmitter();
+  @Output() readonly indexFocused: EventEmitter<number> = new EventEmitter<number>();
 
   constructor(private _elementRef: ElementRef,
               private _changeDetectorRef: ChangeDetectorRef,
               private _viewportRuler: ViewportRuler,
               @Optional() private _dir: Directionality,
-              // @breaking-change 8.0.0 `_ngZone` parameter to be made required.
-              private _ngZone?: NgZone) {
+              // @breaking-change 8.0.0 `_ngZone` and `_platforms` parameters to be made required.
+              private _ngZone?: NgZone,
+              private _platform?: Platform) {
     super();
   }
 
@@ -174,6 +176,11 @@ export class MatTabHeader extends _MatTabHeaderMixinBase
   }
 
   _handleKeydown(event: KeyboardEvent) {
+    // We don't handle any key bindings with a modifier key.
+    if (hasModifierKey(event)) {
+      return;
+    }
+
     switch (event.keyCode) {
       case HOME:
         this._keyManager.setFirstItemActive();
@@ -332,6 +339,7 @@ export class MatTabHeader extends _MatTabHeaderMixinBase
   /** Performs the CSS transformation on the tab list that will cause the list to scroll. */
   _updateTabScrollPosition() {
     const scrollDistance = this.scrollDistance;
+    const platform = this._platform;
     const translateX = this._getLayoutDirection() === 'ltr' ? -scrollDistance : scrollDistance;
 
     // Don't use `translate3d` here because we don't want to create a new layer. A new layer
@@ -344,8 +352,12 @@ export class MatTabHeader extends _MatTabHeaderMixinBase
 
     // Setting the `transform` on IE will change the scroll offset of the parent, causing the
     // position to be thrown off in some cases. We have to reset it ourselves to ensure that
-    // it doesn't get thrown off.
-    this._tabListContainer.nativeElement.scrollLeft = 0;
+    // it doesn't get thrown off. Note that we scope it only to IE and Edge, because messing
+    // with the scroll position throws off Chrome 71+ in RTL mode (see #14689).
+    // @breaking-change 8.0.0 Remove null check for `platform`.
+    if (platform && (platform.TRIDENT || platform.EDGE)) {
+      this._tabListContainer.nativeElement.scrollLeft = 0;
+    }
   }
 
   /** Sets the distance in pixels that the tab header should be transformed in the X-axis. */

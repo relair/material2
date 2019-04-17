@@ -85,7 +85,7 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
   private _portal: TemplatePortal;
   private _overlayRef: OverlayRef | null = null;
   private _menuOpen: boolean = false;
-  private _closeSubscription = Subscription.EMPTY;
+  private _closingActionsSubscription = Subscription.EMPTY;
   private _hoverSubscription = Subscription.EMPTY;
   private _menuCloseSubscription = Subscription.EMPTY;
   private _scrollStrategy: () => ScrollStrategy;
@@ -195,6 +195,7 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
         passiveEventListenerOptions);
 
     this._cleanUpSubscriptions();
+    this._closingActionsSubscription.unsubscribe();
   }
 
   /** Whether the menu is open. */
@@ -226,14 +227,18 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
     this._checkMenu();
 
     const overlayRef = this._createOverlay();
-    this._setPosition(overlayRef.getConfig().positionStrategy as FlexibleConnectedPositionStrategy);
+    const overlayConfig = overlayRef.getConfig();
+
+    this._setPosition(overlayConfig.positionStrategy as FlexibleConnectedPositionStrategy);
+    overlayConfig.hasBackdrop = this.menu.hasBackdrop == null ? !this.triggersSubmenu() :
+        this.menu.hasBackdrop;
     overlayRef.attach(this._getPortal());
 
     if (this.menu.lazyContent) {
       this.menu.lazyContent.attach(this.menuData);
     }
 
-    this._closeSubscription = this._menuClosingActions().subscribe(() => this.closeMenu());
+    this._closingActionsSubscription = this._menuClosingActions().subscribe(() => this.closeMenu());
     this._initMenu();
 
     if (this.menu instanceof MatMenu) {
@@ -266,7 +271,7 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
 
     const menu = this.menu;
 
-    this._closeSubscription.unsubscribe();
+    this._closingActionsSubscription.unsubscribe();
     this._overlayRef.detach();
 
     if (menu instanceof MatMenu) {
@@ -394,7 +399,6 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
           .flexibleConnectedTo(this._element)
           .withLockedPosition()
           .withTransformOriginOn('.mat-menu-panel'),
-      hasBackdrop: this.menu.hasBackdrop == null ? !this.triggersSubmenu() : this.menu.hasBackdrop,
       backdropClass: this.menu.backdropClass || 'cdk-overlay-transparent-backdrop',
       scrollStrategy: this._scrollStrategy(),
       direction: this._dir
@@ -466,7 +470,7 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
 
   /** Cleans up the active subscriptions. */
   private _cleanUpSubscriptions(): void {
-    this._closeSubscription.unsubscribe();
+    this._closingActionsSubscription.unsubscribe();
     this._hoverSubscription.unsubscribe();
   }
 
